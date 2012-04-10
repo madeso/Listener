@@ -16,43 +16,34 @@
 
 namespace listener
 {
-	std::wstring ConvertString(const std::string& sAnsi)
+	std::wstring ConvertString(const std::string& string)
 	{
-		if ( sAnsi.empty() == true )
-			return std::wstring();
+		if ( string.empty() == true )
+			return L"";
 
-		size_t nNumChars = sAnsi.size() + 1;
+		const size_t numberOfCharacters = string.length() + 1;
+		wchar_t* temp = new wchar_t[ numberOfCharacters ];
 
-		wchar_t* pszW = new wchar_t[ nNumChars ];
+		::MultiByteToWideChar( CP_ACP, 0, string.c_str(), numberOfCharacters, temp, numberOfCharacters );
 
-		::MultiByteToWideChar( CP_ACP, 0, sAnsi.c_str(), (int)nNumChars, pszW, (int)nNumChars );
-
-		std::wstring sUni = pszW;
-
-		// Finally delete the temporary string
-		delete pszW;
-		pszW = NULL;
-		
-		return sUni;
+		const std::wstring ret = temp;
+		delete temp;
+		return ret;
 	}
 
-	std::string ConvertString(const std::wstring& sUni)
+	std::string ConvertString(const std::wstring& string)
 	{
-		if ( sUni.empty() == true )
-			return std::string();
+		if ( string.empty() == true )
+			return "";
 
-		size_t nNumChars = sUni.size() + 1;
+		const size_t numberOfCharacters = string.length() + 1;
+		char* temp = new char[ numberOfCharacters ];
 
-		char* pszA = new char[ nNumChars ];
+		::WideCharToMultiByte( CP_ACP, 0, string.c_str(), numberOfCharacters, temp, numberOfCharacters, NULL, NULL );
 
-		::WideCharToMultiByte( CP_ACP, 0, sUni.c_str(), (int)nNumChars, pszA, (int)nNumChars, NULL, NULL );
-
-		std::string sAnsi = pszA;
-
-		delete pszA;
-		pszA = NULL;
-
-		return sAnsi;
+		const std::string ret = temp;
+		delete temp;
+		return ret;
 	}
 
 #ifdef LISTENER_USE_WIDESTRING
