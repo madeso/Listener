@@ -42,7 +42,7 @@ void main()
 			{
 				if( res.value != "" )
 				{
-					std::cout << "Detected: " << res.value << std::endl;
+					std::cout << "Detected: " << res.value << " " << res.percentage << std::endl;
 				}
 			}
 			
