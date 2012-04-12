@@ -14,6 +14,8 @@
 #pragma warning(disable:4995) // Fixing problems with shelper.h
 #endif
 
+#define CONST_FOREACH(TYPE, VAR, CONT) for(TYPE::const_iterator VAR=CONT.begin(); VAR!=CONT.end();++VAR)
+
 namespace listener
 {
 	std::wstring ConvertString(const std::string& string)
@@ -47,8 +49,6 @@ namespace listener
 	}
 
 #ifdef LISTENER_USE_WIDESTRING
-	#define LISTENER_STRING(x)	L##x
-
 	STRING FromString(const std::string& s)
 	{
 		return ConvertString(s);
@@ -69,7 +69,6 @@ namespace listener
 		return s;
 	}
 #else
-	#define LISTENER_STRING(x)	x
 	STRING FromString(const std::string& s)
 	{
 		return s;
@@ -107,6 +106,53 @@ namespace listener
 		return s.c_str();
 	}
 #endif
+
+	Phrase::Phrase(const STRING& phrase)
+		: string(phrase)
+		, weight(1)
+	{
+	}
+	Phrase& Phrase::setWeight(float w)
+	{
+		weight = w;
+		return *this;
+	}
+
+	List::List()
+	{
+	}
+	List::List(const Phrase& phrase)
+	{
+		phrases.push_back(phrase);
+	}
+	List& List::operator<<(const Phrase& phrase)
+	{
+		phrases.push_back(phrase);
+		return *this;
+	}
+	List& List::operator<<(const STRING& phrase)
+	{
+		phrases.push_back(phrase);
+		return *this;
+	}
+
+	Rule::Rule(const STRING& n)
+		: name(n)
+	{
+	}
+	Rule& Rule::operator()(const List& list)
+	{
+		lists.push_back(list);
+		return *this;
+	}
+
+	Grammar::Grammar()
+	{
+	}
+	Grammar::Grammar(const Rule& rule)
+	{
+		rules.push_back(rule);
+	}
 
 	Result::Result()
 		: value("")
@@ -154,7 +200,7 @@ namespace listener
 		{
 		}
 
-		Void init()
+		Void init(const Grammar& g)
 		{
 			CoInitialize(0);
 
@@ -211,11 +257,67 @@ namespace listener
 				RETURNFALSE("Failed to create the grammar");
 			}
 
-			hr = cpGram->LoadCmdFromFile( L"plancommands.cfg", SPLO_DYNAMIC);
+			// resource: http://msdn.microsoft.com/en-us/library/ms717885%28v=vs.85%29.aspx
+
+			CONST_FOREACH(Grammar::Rules, rule, g.rules)
+			{
+				SPSTATEHANDLE firstHlist;
+				hr = cpGram->GetRule(ToWideString(rule->name).c_str(), 0, SPRAF_Dynamic | SPRAF_TopLevel | SPRAF_Active, TRUE, &firstHlist);
+				if( FAILED(hr) )
+				{
+					RETURNFALSE("failed to create rule");
+				}
+
+				std::vector<SPSTATEHANDLE> hlists; // null terminated list of handles matching the lists in the rule
+				const size_t rulesize = rule->lists.size();
+				hlists.reserve(rulesize+1);
+				
+				//generate states
+				for(size_t listindex=0;listindex<rulesize;++listindex)
+				{
+					SPSTATEHANDLE add=NULL;
+					if(listindex==0)
+					{
+						add = firstHlist;
+					}
+					else
+					{
+						hr = cpGram->CreateNewState(firstHlist, &add);
+						if( FAILED(hr) )
+						{
+							RETURNFALSE("Failed to create list");
+						}
+					}
+					hlists.push_back(add);
+				}
+				hlists.push_back(NULL);
+
+				for(size_t listindex=0;listindex<rulesize;++listindex)
+				{
+					SPSTATEHANDLE current = hlists[listindex];
+					SPSTATEHANDLE next = hlists[listindex+1];
+
+					CONST_FOREACH(List::Phrases, phrase, rule->lists[listindex].phrases)
+					{
+						hr = cpGram->AddWordTransition(current, next, ToWideString(phrase->string).c_str(), L" ", SPWT_LEXICAL, phrase->weight, NULL);
+						if( FAILED(hr) )
+						{
+							RETURNFALSE("Failed to add phrase");
+						}
+					}
+				}
+			}
+			hr = cpGram->Commit(0);
+			if( FAILED(hr) )
+			{
+				RETURNFALSE("Failed to commit changes");
+			}
+
+			/*hr = cpGram->LoadCmdFromFile( L"plancommands.cfg", SPLO_DYNAMIC);
 			if( FAILED(hr) )
 			{
 				RETURNFALSE("Failed to load commands");;
-			}
+			}*/
 
 			// Activate the grammar rules
 			hr = cpGram->SetRuleState(0, 0, SPRS_ACTIVE);
@@ -301,14 +403,14 @@ namespace listener
 	};
 #endif
 
-	Listener* CreateSapiListener()
+	Listener* CreateSapiListener(const Grammar& g)
 	{
 #ifdef LISTENER_SUPPORT_SAPI
 		SapiListener* s = new SapiListener();
 #ifndef LISTENER_USE_EXCEPTION
 		const bool result = 
 #endif
-		s->init();
+		s->init(g);
 
 #ifndef LISTENER_USE_EXCEPTION
 		if( result == false )
@@ -324,11 +426,11 @@ namespace listener
 #endif
 	}
 
-	Listener* Create(CreateType ct)
+	Listener* Create(CreateType ct, const Grammar& g)
 	{
 		if( ct == CREATE_SAPI || ct == CREATE_BESTFIT )
 		{
-			Listener* s = CreateSapiListener();
+			Listener* s = CreateSapiListener(g);
 			if( s ) return s;
 		}
 		

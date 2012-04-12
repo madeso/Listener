@@ -2,6 +2,7 @@
 #define LISTENER_H_INCLUDED
 
 #include <string>
+#include <vector>
 
 #define LISTENER_SUPPORT_SAPI
 #define LISTENER_USE_EXCEPTION
@@ -15,8 +16,10 @@
 
 #ifdef LISTENER_USE_WIDESTRING
 	typedef std::wstring STRING;
+	#define LISTENER_STRING(x)	STRING(L##x)
 #else
 	typedef std::string STRING;
+	#define LISTENER_STRING(x)	STRING(x)
 #endif
 
 
@@ -32,6 +35,47 @@ namespace listener
 		std::string s;
 	};
 #endif
+
+	struct Phrase
+	{
+		Phrase(const STRING& phrase);
+		STRING string;
+		float weight;
+
+		Phrase& setWeight(float w);
+	};
+
+	struct List
+	{
+		List();
+		List(const Phrase& phrase);
+
+		typedef std::vector<Phrase> Phrases;
+		Phrases phrases;
+
+		List& operator<<(const Phrase& phrase); /// syntactic sugar for adding phrases
+		List& operator<<(const STRING& phrase); /// syntactic sugar for adding phrases
+	};
+
+	struct Rule
+	{
+		explicit Rule(const STRING& name);
+
+		typedef std::vector<List> Lists;
+		Lists lists;
+		STRING name;
+
+		Rule& operator()(const List& list); /// syntactic sugar for adding lists
+	};
+
+	struct Grammar
+	{
+		Grammar();
+		Grammar(const Rule& rule); /// syntactic sugar for single rule grammars
+
+		typedef std::vector<Rule> Rules;
+		Rules rules;
+	};
 
 	struct Result
 	{
@@ -60,7 +104,7 @@ namespace listener
 		, CREATE_BESTFIT // sapi for windows systems, null for other
 	};
 
-	Listener* Create(CreateType ct);
+	Listener* Create(CreateType ct, const Grammar& g);
 	void Destroy(Listener* li);
 }
 

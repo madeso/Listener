@@ -18,7 +18,13 @@ void main()
 
 	try
 	{
-		std::auto_ptr<listener::Listener> li(listener::Create(listener::CREATE_BESTFIT));
+		listener::Grammar g = listener::Rule("test")
+			( listener::List() << LISTENER_STRING("walk") << LISTENER_STRING("run") << LISTENER_STRING("crawl"))
+			( listener::List(LISTENER_STRING("to")) )
+			( listener::List() << LISTENER_STRING("your home") << LISTENER_STRING("my car"))
+			;
+
+		std::auto_ptr<listener::Listener> li(listener::Create(listener::CREATE_BESTFIT, g));
 		if( li->canListen() == false )
 		{
 			std::cerr << "Selected lestener is not listening, aborting..." << std::endl;
