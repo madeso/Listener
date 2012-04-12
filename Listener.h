@@ -8,15 +8,15 @@
 //#define LISTENER_USE_WIDESTRING
 
 #ifdef LISTENER_USE_EXCEPTION
-	#define Void void
+	typedef void Void;
 #else
-	#define Void bool
+	typedef bool Void;
 #endif
 
 #ifdef LISTENER_USE_WIDESTRING
-	#define STRING std::wstring
+	typedef std::wstring STRING;
 #else
-	#define STRING std::string
+	typedef std::string STRING;
 #endif
 
 
